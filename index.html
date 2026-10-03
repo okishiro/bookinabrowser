@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
+
 <head>
+
 <meta charset="utf-8">
 
 <meta
@@ -8,7 +10,13 @@
   content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
 >
 
+<meta
+  name="theme-color"
+  content="#121212"
+>
+
 <title>Offline EPUB Reader</title>
+
 
 <style>
 
@@ -20,14 +28,19 @@
   box-sizing: border-box;
 }
 
+
 html,
 body {
+
   margin: 0;
+
   width: 100%;
   height: 100%;
+
   overflow: hidden;
 
   background: #121212;
+
   color: #eeeeee;
 
   font-family:
@@ -36,6 +49,7 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+
 }
 
 
@@ -49,21 +63,24 @@ body {
   height: 100%;
 
   display: flex;
+
   flex-direction: column;
 
 }
 
 
 /* =========================================================
-   TOP BAR
+   TOOLBAR
 ========================================================= */
 
 #toolbar {
 
   height: 58px;
+
   min-height: 58px;
 
   display: flex;
+
   align-items: center;
 
   gap: 8px;
@@ -175,18 +192,16 @@ button:active {
 }
 
 
-/*
- * This is the actual reading area.
- */
-
 #wordPage {
 
   width: 100%;
+
   height: 100%;
 
   display: flex;
 
   align-items: center;
+
   justify-content: center;
 
   padding: 35px;
@@ -241,7 +256,7 @@ button:active {
 
 
 /* =========================================================
-   EMPTY SCREEN
+   EMPTY
 ========================================================= */
 
 #empty {
@@ -302,6 +317,56 @@ button:active {
 
 
 /* =========================================================
+   STORAGE STATUS
+========================================================= */
+
+#storageStatus {
+
+  position: fixed;
+
+  right: 10px;
+
+  bottom: 10px;
+
+  z-index: 80;
+
+  padding: 5px 9px;
+
+  border-radius: 6px;
+
+  font-size: 10px;
+
+  background: #222;
+
+  color: #888;
+
+  pointer-events: none;
+
+}
+
+
+#storageStatus.persistent {
+
+  color: #65d879;
+
+}
+
+
+#storageStatus.temporary {
+
+  color: #e9b84b;
+
+}
+
+
+#storageStatus.unsupported {
+
+  color: #999;
+
+}
+
+
+/* =========================================================
    LIBRARY
 ========================================================= */
 
@@ -310,7 +375,9 @@ button:active {
   position: fixed;
 
   left: 0;
+
   top: 0;
+
   bottom: 0;
 
   width: 330px;
@@ -439,6 +506,7 @@ button:active {
   position: absolute;
 
   right: 7px;
+
   top: 7px;
 
   padding: 3px 8px;
@@ -458,6 +526,10 @@ button:active {
 
 }
 
+
+/* =========================================================
+   EMPTY LIBRARY
+========================================================= */
 
 #emptyLibrary {
 
@@ -506,6 +578,7 @@ button:active {
   position: fixed;
 
   left: 15px;
+
   right: 15px;
 
   bottom: 20px;
@@ -522,6 +595,10 @@ button:active {
 
   display: none;
 
+  white-space: pre-wrap;
+
+  line-height: 1.5;
+
 }
 
 
@@ -534,6 +611,7 @@ button:active {
   #toolbar {
 
     height: 54px;
+
     min-height: 54px;
 
     padding: 7px;
@@ -624,10 +702,12 @@ button:active {
 }
 
 </style>
+
 </head>
 
 
 <body>
+
 
 <div id="app">
 
@@ -638,26 +718,34 @@ button:active {
 
   <div id="toolbar">
 
+
     <button id="libraryButton">
+
       ☰ Library
+
     </button>
 
 
     <button id="addButton">
+
       + Add Book
+
     </button>
 
 
     <input
       id="fileInput"
       type="file"
-      accept=".epub"
+      accept=".epub,application/epub+zip"
     >
 
 
     <span id="title">
+
       No book loaded
+
     </span>
+
 
   </div>
 
@@ -667,6 +755,7 @@ button:active {
   ====================================================== -->
 
   <div id="reader">
+
 
     <div id="wordPage">
 
@@ -702,11 +791,14 @@ button:active {
 
 
     <div id="loading">
+
       Loading...
+
     </div>
 
 
     <div id="chapterInfo"></div>
+
 
   </div>
 
@@ -720,16 +812,22 @@ button:active {
 
 <div id="library">
 
+
   <div id="libraryHeader">
 
     <h2>
-      My Book
+
+      My Books
+
     </h2>
 
 
     <button id="closeLibrary">
+
       ×
+
     </button>
+
 
   </div>
 
@@ -747,6 +845,18 @@ button:active {
     </div>
 
   </div>
+
+
+</div>
+
+
+<!-- =======================================================
+     STORAGE STATUS
+======================================================= -->
+
+<div id="storageStatus">
+
+  Checking storage...
 
 </div>
 
@@ -769,13 +879,33 @@ button:active {
 
 const WORDS_PER_PAGE = 20;
 
-const DB_NAME = "OfflineSingleEPUBReader";
+
+/*
+ * Database name.
+ *
+ * This is intentionally different from the previous version.
+ *
+ * This prevents an old/broken database from interfering with
+ * this new storage implementation.
+ */
+
+const DB_NAME =
+  "OfflineEPUBReaderPersistent";
+
 
 const DB_VERSION = 1;
 
-const BOOK_KEY = "single-book";
 
-const POSITION_KEY = "reading-position";
+const STORE_NAME =
+  "books";
+
+
+const BOOK_KEY =
+  "current-book";
+
+
+const POSITION_KEY =
+  "reading-position";
 
 
 /* =========================================================
@@ -792,8 +922,6 @@ let currentWordPage = 0;
 
 let totalWordPages = 0;
 
-let currentChapter = 0;
-
 let touchStartX = 0;
 
 let touchStartY = 0;
@@ -804,50 +932,313 @@ let touchStartY = 0;
 ========================================================= */
 
 const textElement =
-  document.getElementById("text");
+  document.getElementById(
+    "text"
+  );
+
 
 const wordPageElement =
-  document.getElementById("wordPage");
+  document.getElementById(
+    "wordPage"
+  );
+
 
 const emptyElement =
-  document.getElementById("empty");
+  document.getElementById(
+    "empty"
+  );
+
 
 const loadingElement =
-  document.getElementById("loading");
+  document.getElementById(
+    "loading"
+  );
+
 
 const titleElement =
-  document.getElementById("title");
+  document.getElementById(
+    "title"
+  );
+
 
 const chapterInfoElement =
-  document.getElementById("chapterInfo");
+  document.getElementById(
+    "chapterInfo"
+  );
+
 
 const fileInput =
-  document.getElementById("fileInput");
+  document.getElementById(
+    "fileInput"
+  );
+
 
 const libraryElement =
-  document.getElementById("library");
+  document.getElementById(
+    "library"
+  );
+
 
 const bookListElement =
-  document.getElementById("bookList");
+  document.getElementById(
+    "bookList"
+  );
+
 
 const errorElement =
-  document.getElementById("error");
+  document.getElementById(
+    "error"
+  );
+
+
+const storageStatusElement =
+  document.getElementById(
+    "storageStatus"
+  );
 
 
 /* =========================================================
-   INDEXED DB
+   STORAGE PERSISTENCE
+========================================================= */
+
+
+/*
+ * Ask the browser for persistent storage.
+ *
+ * On supported browsers this tells the browser that the
+ * application's IndexedDB data should not be automatically
+ * removed as ordinary temporary website data.
+ */
+
+async function requestPersistentStorage() {
+
+  try {
+
+    if (
+      !navigator.storage
+    ) {
+
+      storageStatusElement.textContent =
+        "Storage API unavailable";
+
+      storageStatusElement.className =
+        "unsupported";
+
+      return false;
+
+    }
+
+
+    if (
+      !navigator.storage.persist
+    ) {
+
+      storageStatusElement.textContent =
+        "Persistent storage unavailable";
+
+      storageStatusElement.className =
+        "temporary";
+
+      return false;
+
+    }
+
+
+    let persisted =
+      false;
+
+
+    if (
+      navigator.storage.persisted
+    ) {
+
+      try {
+
+        persisted =
+          await navigator.storage.persisted();
+
+      }
+      catch {
+
+        persisted =
+          false;
+
+      }
+
+    }
+
+
+    /*
+     * If storage isn't persistent yet, request it.
+     */
+
+    if (!persisted) {
+
+      try {
+
+        persisted =
+          await navigator.storage.persist();
+
+      }
+      catch {
+
+        persisted =
+          false;
+
+      }
+
+    }
+
+
+    if (persisted) {
+
+      storageStatusElement.textContent =
+        "● Persistent storage";
+
+      storageStatusElement.className =
+        "persistent";
+
+      return true;
+
+    }
+
+
+    storageStatusElement.textContent =
+      "● Device storage";
+
+    storageStatusElement.className =
+      "temporary";
+
+    return false;
+
+  }
+  catch (error) {
+
+    console.warn(
+      "Persistent storage check failed:",
+      error
+    );
+
+
+    storageStatusElement.textContent =
+      "● Device storage";
+
+    storageStatusElement.className =
+      "temporary";
+
+    return false;
+
+  }
+
+}
+
+
+/* =========================================================
+   STORAGE ESTIMATE
+========================================================= */
+
+async function checkStorageSpace() {
+
+  try {
+
+    if (
+      !navigator.storage ||
+      !navigator.storage.estimate
+    ) {
+
+      return;
+
+    }
+
+
+    const estimate =
+      await navigator.storage.estimate();
+
+
+    if (
+      typeof estimate.quota ===
+      "number"
+    ) {
+
+      console.log(
+        "Storage quota:",
+        estimate.quota
+      );
+
+    }
+
+
+    if (
+      typeof estimate.usage ===
+      "number"
+    ) {
+
+      console.log(
+        "Storage currently used:",
+        estimate.usage
+      );
+
+    }
+
+  }
+  catch (error) {
+
+    console.warn(
+      "Could not check storage:",
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   INDEXED DB OPEN
 ========================================================= */
 
 function openDB() {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
-      const request =
-        indexedDB.open(
-          DB_NAME,
-          DB_VERSION
+      if (
+        !window.indexedDB
+      ) {
+
+        reject(
+          new Error(
+            "IndexedDB is not available in this browser."
+          )
         );
+
+        return;
+
+      }
+
+
+      let request;
+
+
+      try {
+
+        request =
+          indexedDB.open(
+            DB_NAME,
+            DB_VERSION
+          );
+
+      }
+      catch (error) {
+
+        reject(error);
+
+        return;
+
+      }
 
 
       request.onupgradeneeded =
@@ -857,13 +1248,18 @@ function openDB() {
             event.target.result;
 
 
+          /*
+           * Create the books store.
+           */
+
           if (
-            !database.objectStoreNames
-              .contains("data")
+            !database.objectStoreNames.contains(
+              STORE_NAME
+            )
           ) {
 
             database.createObjectStore(
-              "data"
+              STORE_NAME
             );
 
           }
@@ -874,10 +1270,54 @@ function openDB() {
       request.onsuccess =
         event => {
 
-          db =
+          const database =
             event.target.result;
 
-          resolve(db);
+
+          /*
+           * Make sure the required store exists.
+           */
+
+          if (
+            !database.objectStoreNames.contains(
+              STORE_NAME
+            )
+          ) {
+
+            database.close();
+
+
+            reject(
+              new Error(
+                "IndexedDB opened but the books object store is missing."
+              )
+            );
+
+            return;
+
+          }
+
+
+          db =
+            database;
+
+
+          /*
+           * If another tab changes the DB version,
+           * close this connection.
+           */
+
+          database.onversionchange =
+            () => {
+
+              database.close();
+
+            };
+
+
+          resolve(
+            database
+          );
 
         };
 
@@ -886,7 +1326,22 @@ function openDB() {
         () => {
 
           reject(
-            request.error
+            request.error ||
+            new Error(
+              "Could not open IndexedDB."
+            )
+          );
+
+        };
+
+
+      request.onblocked =
+        () => {
+
+          reject(
+            new Error(
+              "IndexedDB is blocked by another open page. Close other tabs/windows running this reader and reload."
+            )
           );
 
         };
@@ -898,7 +1353,37 @@ function openDB() {
 
 
 /* =========================================================
-   DATABASE SAVE
+   DATABASE CHECK
+========================================================= */
+
+function ensureDatabase() {
+
+  if (!db) {
+
+    throw new Error(
+      "Database has not been opened."
+    );
+
+  }
+
+
+  if (
+    !db.objectStoreNames.contains(
+      STORE_NAME
+    )
+  ) {
+
+    throw new Error(
+      "Required IndexedDB object store is missing."
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   SAVE TO INDEXED DB
 ========================================================= */
 
 function saveData(
@@ -907,31 +1392,74 @@ function saveData(
 ) {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
-      const tx =
-        db.transaction(
-          "data",
-          "readwrite"
+      try {
+
+        ensureDatabase();
+
+
+        const transaction =
+          db.transaction(
+            STORE_NAME,
+            "readwrite"
+          );
+
+
+        const store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+
+        store.put(
+          value,
+          key
         );
 
 
-      tx.objectStore(
-        "data"
-      ).put(
-        value,
-        key
-      );
+        transaction.oncomplete =
+          () => {
+
+            resolve();
+
+          };
 
 
-      tx.oncomplete =
-        () => resolve();
+        transaction.onerror =
+          () => {
+
+            reject(
+              transaction.error ||
+              new Error(
+                "IndexedDB save failed."
+              )
+            );
+
+          };
 
 
-      tx.onerror =
-        () => reject(
-          tx.error
-        );
+        transaction.onabort =
+          () => {
+
+            reject(
+              transaction.error ||
+              new Error(
+                "IndexedDB save was aborted."
+              )
+            );
+
+          };
+
+      }
+      catch (error) {
+
+        reject(error);
+
+      }
 
     }
   );
@@ -940,45 +1468,84 @@ function saveData(
 
 
 /* =========================================================
-   DATABASE GET
+   GET FROM INDEXED DB
 ========================================================= */
 
-function getData(key) {
+function getData(
+  key
+) {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
-      const tx =
-        db.transaction(
-          "data",
-          "readonly"
-        );
+      try {
 
-
-      const request =
-        tx.objectStore(
-          "data"
-        ).get(key);
+        ensureDatabase();
 
 
-      request.onsuccess =
-        () => {
-
-          resolve(
-            request.result
+        const transaction =
+          db.transaction(
+            STORE_NAME,
+            "readonly"
           );
 
-        };
 
-
-      request.onerror =
-        () => {
-
-          reject(
-            request.error
+        const store =
+          transaction.objectStore(
+            STORE_NAME
           );
 
-        };
+
+        const request =
+          store.get(
+            key
+          );
+
+
+        request.onsuccess =
+          () => {
+
+            resolve(
+              request.result
+            );
+
+          };
+
+
+        request.onerror =
+          () => {
+
+            reject(
+              request.error ||
+              new Error(
+                "IndexedDB read failed."
+              )
+            );
+
+          };
+
+
+        transaction.onerror =
+          () => {
+
+            reject(
+              transaction.error ||
+              new Error(
+                "IndexedDB read transaction failed."
+              )
+            );
+
+          };
+
+      }
+      catch (error) {
+
+        reject(error);
+
+      }
 
     }
   );
@@ -987,37 +1554,213 @@ function getData(key) {
 
 
 /* =========================================================
-   DATABASE DELETE
+   DELETE FROM INDEXED DB
 ========================================================= */
 
-function deleteData(key) {
+function deleteData(
+  key
+) {
 
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject
+    ) => {
 
-      const tx =
-        db.transaction(
-          "data",
-          "readwrite"
+      try {
+
+        ensureDatabase();
+
+
+        const transaction =
+          db.transaction(
+            STORE_NAME,
+            "readwrite"
+          );
+
+
+        const store =
+          transaction.objectStore(
+            STORE_NAME
+          );
+
+
+        store.delete(
+          key
         );
 
 
-      tx.objectStore(
-        "data"
-      ).delete(key);
+        transaction.oncomplete =
+          () => {
+
+            resolve();
+
+          };
 
 
-      tx.oncomplete =
-        () => resolve();
+        transaction.onerror =
+          () => {
+
+            reject(
+              transaction.error ||
+              new Error(
+                "IndexedDB delete failed."
+              )
+            );
+
+          };
 
 
-      tx.onerror =
-        () => reject(
-          tx.error
-        );
+        transaction.onabort =
+          () => {
+
+            reject(
+              transaction.error ||
+              new Error(
+                "IndexedDB delete was aborted."
+              )
+            );
+
+          };
+
+      }
+      catch (error) {
+
+        reject(error);
+
+      }
 
     }
   );
+
+}
+
+
+/* =========================================================
+   SAVE BOOK
+========================================================= */
+
+
+/*
+ * Store the EPUB as a Blob.
+ *
+ * Blob is deliberately used instead of relying only on a
+ * JavaScript ArrayBuffer object.
+ */
+
+async function saveBook(
+  file
+) {
+
+  const blob =
+    new Blob(
+      [
+        await file.arrayBuffer()
+      ],
+      {
+        type:
+          "application/epub+zip"
+      }
+    );
+
+
+  const bookRecord = {
+
+    id:
+      BOOK_KEY,
+
+    name:
+      file.name,
+
+    size:
+      file.size,
+
+    type:
+      file.type ||
+      "application/epub+zip",
+
+    saved:
+      Date.now(),
+
+    data:
+      blob
+
+  };
+
+
+  await saveData(
+    BOOK_KEY,
+    bookRecord
+  );
+
+
+  /*
+   * Verify immediately after saving.
+   *
+   * This is important on mobile because it confirms that
+   * IndexedDB actually contains the EPUB before the app
+   * continues.
+   */
+
+  const verification =
+    await getData(
+      BOOK_KEY
+    );
+
+
+  if (
+    !verification ||
+    !verification.data
+  ) {
+
+    throw new Error(
+      "The EPUB could not be verified after saving."
+    );
+
+  }
+
+
+  return verification;
+
+}
+
+
+/* =========================================================
+   READ STORED BOOK
+========================================================= */
+
+async function getSavedBook() {
+
+  const stored =
+    await getData(
+      BOOK_KEY
+    );
+
+
+  if (
+    !stored
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    !stored.data
+  ) {
+
+    console.warn(
+      "Stored book exists but EPUB data is missing."
+    );
+
+
+    return null;
+
+  }
+
+
+  return stored;
 
 }
 
@@ -1033,7 +1776,9 @@ function u16(
 
   return (
     array[offset] |
-    (array[offset + 1] << 8)
+    (
+      array[offset + 1] << 8
+    )
   );
 
 }
@@ -1046,24 +1791,40 @@ function u32(
 
   return (
     array[offset] |
-    (array[offset + 1] << 8) |
-    (array[offset + 2] << 16) |
-    (array[offset + 3] << 24)
+    (
+      array[offset + 1] << 8
+    ) |
+    (
+      array[offset + 2] << 16
+    ) |
+    (
+      array[offset + 3] << 24
+    )
   ) >>> 0;
 
 }
 
 
-function decodeText(bytes) {
+function decodeText(
+  bytes
+) {
 
   return new TextDecoder(
     "utf-8"
-  ).decode(bytes);
+  ).decode(
+    bytes
+  );
 
 }
 
 
-async function inflateRaw(data) {
+/* =========================================================
+   DEFLATE
+========================================================= */
+
+async function inflateRaw(
+  data
+) {
 
   if (
     typeof DecompressionStream ===
@@ -1071,14 +1832,16 @@ async function inflateRaw(data) {
   ) {
 
     throw new Error(
-      "This browser does not support EPUB ZIP decompression."
+      "This browser does not support ZIP decompression."
     );
 
   }
 
 
   const stream =
-    new Blob([data])
+    new Blob(
+      [data]
+    )
       .stream()
       .pipeThrough(
         new DecompressionStream(
@@ -1102,13 +1865,20 @@ async function inflateRaw(data) {
 
 class ZipReader {
 
-  constructor(buffer) {
+
+  constructor(
+    buffer
+  ) {
 
     this.data =
-      new Uint8Array(buffer);
+      new Uint8Array(
+        buffer
+      );
+
 
     this.files =
       new Map();
+
 
     this.readDirectory();
 
@@ -1121,32 +1891,41 @@ class ZipReader {
       this.data;
 
 
-    let eocd = -1;
+    let eocd =
+      -1;
 
 
     /*
-     * Search for End Of Central Directory.
+     * Find End Of Central Directory.
      */
 
     for (
-      let i = a.length - 22;
+      let i =
+        a.length - 22;
 
-      i >= Math.max(
-        0,
-        a.length - 66000
-      );
+      i >=
+        Math.max(
+          0,
+          a.length - 66000
+        );
 
       i--
     ) {
 
       if (
+
         a[i] === 0x50 &&
+
         a[i + 1] === 0x4b &&
+
         a[i + 2] === 0x05 &&
+
         a[i + 3] === 0x06
+
       ) {
 
-        eocd = i;
+        eocd =
+          i;
 
         break;
 
@@ -1155,7 +1934,9 @@ class ZipReader {
     }
 
 
-    if (eocd < 0) {
+    if (
+      eocd < 0
+    ) {
 
       throw new Error(
         "Invalid EPUB ZIP structure."
@@ -1188,11 +1969,17 @@ class ZipReader {
       i++
     ) {
 
+
       if (
+
         a[position] !== 0x50 ||
+
         a[position + 1] !== 0x4b ||
+
         a[position + 2] !== 0x01 ||
+
         a[position + 3] !== 0x02
+
       ) {
 
         throw new Error(
@@ -1258,9 +2045,13 @@ class ZipReader {
       this.files.set(
         name,
         {
+
           method,
+
           compressedSize,
+
           localOffset
+
         }
       );
 
@@ -1276,7 +2067,9 @@ class ZipReader {
   }
 
 
-  has(name) {
+  has(
+    name
+  ) {
 
     return this.files.has(
       name.replace(
@@ -1288,7 +2081,9 @@ class ZipReader {
   }
 
 
-  async get(name) {
+  async get(
+    name
+  ) {
 
     name =
       name.replace(
@@ -1350,6 +2145,10 @@ class ZipReader {
       );
 
 
+    /*
+     * No compression.
+     */
+
     if (
       info.method === 0
     ) {
@@ -1359,11 +2158,15 @@ class ZipReader {
     }
 
 
+    /*
+     * Deflate.
+     */
+
     if (
       info.method === 8
     ) {
 
-      return await inflateRaw(
+      return inflateRaw(
         compressed
       );
 
@@ -1371,7 +2174,8 @@ class ZipReader {
 
 
     throw new Error(
-      "Unsupported ZIP compression method."
+      "Unsupported ZIP compression method: " +
+      info.method
     );
 
   }
@@ -1383,9 +2187,12 @@ class ZipReader {
    PATH HELPERS
 ========================================================= */
 
-function normalizePath(path) {
+function normalizePath(
+  path
+) {
 
-  const parts = [];
+  const parts =
+    [];
 
 
   for (
@@ -1412,22 +2219,30 @@ function normalizePath(path) {
     }
     else {
 
-      parts.push(part);
+      parts.push(
+        part
+      );
 
     }
 
   }
 
 
-  return parts.join("/");
+  return parts.join(
+    "/"
+  );
 
 }
 
 
-function dirname(path) {
+function dirname(
+  path
+) {
 
   const index =
-    path.lastIndexOf("/");
+    path.lastIndexOf(
+      "/"
+    );
 
 
   if (
@@ -1453,7 +2268,9 @@ function resolvePath(
 ) {
 
   if (
-    relative.startsWith("/")
+    relative.startsWith(
+      "/"
+    )
   ) {
 
     return normalizePath(
@@ -1464,9 +2281,13 @@ function resolvePath(
 
 
   return normalizePath(
+
     base
-      ? base + "/" + relative
+      ? base +
+        "/" +
+        relative
       : relative
+
   );
 
 }
@@ -1478,25 +2299,42 @@ function resolvePath(
 
 class EPUBBook {
 
-  constructor(buffer) {
+
+  constructor(
+    buffer
+  ) {
 
     this.zip =
-      new ZipReader(buffer);
+      new ZipReader(
+        buffer
+      );
 
-    this.basePath = "";
+
+    this.basePath =
+      "";
+
 
     this.manifest =
       new Map();
 
-    this.chapters = [];
+
+    this.chapters =
+      [];
 
   }
 
 
   async open() {
 
+
+    /*
+     * Verify mimetype.
+     */
+
     if (
-      !this.zip.has("mimetype")
+      !this.zip.has(
+        "mimetype"
+      )
     ) {
 
       throw new Error(
@@ -1507,18 +2345,21 @@ class EPUBBook {
 
 
     /*
-     * Read container.xml
+     * Read container.xml.
      */
 
     const container =
       new DOMParser()
         .parseFromString(
+
           decodeText(
             await this.zip.get(
               "META-INF/container.xml"
             )
           ),
+
           "application/xml"
+
         );
 
 
@@ -1543,28 +2384,42 @@ class EPUBBook {
       );
 
 
+    if (!opfPath) {
+
+      throw new Error(
+        "EPUB package path is missing."
+      );
+
+    }
+
+
     this.basePath =
-      dirname(opfPath);
+      dirname(
+        opfPath
+      );
 
 
     /*
-     * Read package.opf
+     * Read OPF.
      */
 
     const opf =
       new DOMParser()
         .parseFromString(
+
           decodeText(
             await this.zip.get(
               opfPath
             )
           ),
+
           "application/xml"
+
         );
 
 
     /*
-     * Manifest
+     * Manifest.
      */
 
     for (
@@ -1599,6 +2454,7 @@ class EPUBBook {
       this.manifest.set(
         id,
         {
+
           href,
 
           mediaType:
@@ -1609,7 +2465,8 @@ class EPUBBook {
           properties:
             item.getAttribute(
               "properties"
-            ) || ""
+            ) ||
+            ""
 
         }
       );
@@ -1618,7 +2475,7 @@ class EPUBBook {
 
 
     /*
-     * Spine
+     * Spine.
      */
 
     const spine =
@@ -1662,6 +2519,26 @@ class EPUBBook {
       }
 
 
+      let href =
+        item.href
+          .split("#")[0];
+
+
+      try {
+
+        href =
+          decodeURIComponent(
+            href
+          );
+
+      }
+      catch {
+
+        /* Keep original href. */
+
+      }
+
+
       this.chapters.push({
 
         id,
@@ -1669,10 +2546,7 @@ class EPUBBook {
         path:
           resolvePath(
             this.basePath,
-            decodeURIComponent(
-              item.href
-                .split("#")[0]
-            )
+            href
           ),
 
         title:
@@ -1688,7 +2562,7 @@ class EPUBBook {
 
 
     /*
-     * Read EPUB navigation.
+     * Read navigation.
      */
 
     await this.loadNavigation(
@@ -1709,10 +2583,13 @@ class EPUBBook {
   }
 
 
-  async loadNavigation(opf) {
+  async loadNavigation(
+    opf
+  ) {
+
 
     /*
-     * EPUB 3 navigation.
+     * EPUB 3.
      */
 
     for (
@@ -1723,15 +2600,35 @@ class EPUBBook {
       if (
         item.properties
           .split(/\s+/)
-          .includes("nav")
+          .includes(
+            "nav"
+          )
       ) {
+
+
+        let href =
+          item.href;
+
+
+        try {
+
+          href =
+            decodeURIComponent(
+              href
+            );
+
+        }
+        catch {
+
+          /* Keep original. */
+
+        }
+
 
         const path =
           resolvePath(
             this.basePath,
-            decodeURIComponent(
-              item.href
-            )
+            href
           );
 
 
@@ -1748,7 +2645,7 @@ class EPUBBook {
 
 
     /*
-     * EPUB 2 NCX
+     * EPUB 2 NCX.
      */
 
     const spine =
@@ -1788,12 +2685,29 @@ class EPUBBook {
       );
 
 
+    let href =
+      item.href;
+
+
+    try {
+
+      href =
+        decodeURIComponent(
+          href
+        );
+
+    }
+    catch {
+
+      /* Keep original. */
+
+    }
+
+
     const path =
       resolvePath(
         this.basePath,
-        decodeURIComponent(
-          item.href
-        )
+        href
       );
 
 
@@ -1804,19 +2718,24 @@ class EPUBBook {
   }
 
 
-  async parseNCX(path) {
+  async parseNCX(
+    path
+  ) {
 
     try {
 
       const doc =
         new DOMParser()
           .parseFromString(
+
             decodeText(
               await this.zip.get(
                 path
               )
             ),
+
             "application/xml"
+
           );
 
 
@@ -1826,6 +2745,7 @@ class EPUBBook {
           "navPoint"
         )
       ) {
+
 
         const label =
           point.querySelector(
@@ -1862,19 +2782,37 @@ class EPUBBook {
         }
 
 
+        let targetPath =
+          src.split("#")[0];
+
+
+        try {
+
+          targetPath =
+            decodeURIComponent(
+              targetPath
+            );
+
+        }
+        catch {
+
+          /* Keep original. */
+
+        }
+
+
         const target =
           resolvePath(
             dirname(path),
-            decodeURIComponent(
-              src.split("#")[0]
-            )
+            targetPath
           );
 
 
         const index =
           this.chapters.findIndex(
             chapter =>
-              chapter.path === target
+              chapter.path ===
+              target
           );
 
 
@@ -1882,20 +2820,28 @@ class EPUBBook {
           index >= 0
         ) {
 
-          this.chapters[index]
-            .title =
-              label.textContent.trim();
+          const title =
+            label.textContent.trim();
+
+
+          if (title) {
+
+            this.chapters[index]
+              .title =
+              title;
+
+          }
 
         }
 
       }
 
     }
-    catch (e) {
+    catch (error) {
 
       console.warn(
         "Could not read NCX:",
-        e
+        error
       );
 
     }
@@ -1903,19 +2849,24 @@ class EPUBBook {
   }
 
 
-  async parseNavigation(path) {
+  async parseNavigation(
+    path
+  ) {
 
     try {
 
       const doc =
         new DOMParser()
           .parseFromString(
+
             decodeText(
               await this.zip.get(
                 path
               )
             ),
+
             "application/xhtml+xml"
+
           );
 
 
@@ -1930,6 +2881,7 @@ class EPUBBook {
         links
       ) {
 
+
         const href =
           link.getAttribute(
             "href"
@@ -1943,19 +2895,37 @@ class EPUBBook {
         }
 
 
+        let targetPath =
+          href.split("#")[0];
+
+
+        try {
+
+          targetPath =
+            decodeURIComponent(
+              targetPath
+            );
+
+        }
+        catch {
+
+          /* Keep original. */
+
+        }
+
+
         const target =
           resolvePath(
             dirname(path),
-            decodeURIComponent(
-              href.split("#")[0]
-            )
+            targetPath
           );
 
 
         const index =
           this.chapters.findIndex(
             chapter =>
-              chapter.path === target
+              chapter.path ===
+              target
           );
 
 
@@ -1980,11 +2950,11 @@ class EPUBBook {
       }
 
     }
-    catch (e) {
+    catch (error) {
 
       console.warn(
         "Could not read navigation:",
-        e
+        error
       );
 
     }
@@ -1992,7 +2962,9 @@ class EPUBBook {
   }
 
 
-  async getChapter(index) {
+  async getChapter(
+    index
+  ) {
 
     const chapter =
       this.chapters[index];
@@ -2022,7 +2994,9 @@ class EPUBBook {
         chapter.title,
 
       html:
-        decodeText(bytes)
+        decodeText(
+          bytes
+        )
 
     };
 
@@ -2032,7 +3006,7 @@ class EPUBBook {
 
 
 /* =========================================================
-   EXTRACT TEXT
+   EXTRACT CHAPTER TEXT
 ========================================================= */
 
 async function extractChapterText(
@@ -2050,10 +3024,6 @@ async function extractChapterText(
     );
 
 
-  /*
-   * Remove things that aren't readable text.
-   */
-
   document
     .querySelectorAll(
       "script,style,noscript,iframe,object,embed"
@@ -2064,19 +3034,11 @@ async function extractChapterText(
     );
 
 
-  /*
-   * Get visible text.
-   */
-
   let result =
     document.body
       ? document.body.innerText
       : document.documentElement.innerText;
 
-
-  /*
-   * Normalize whitespace.
-   */
 
   result =
     result
@@ -2097,14 +3059,15 @@ async function extractChapterText(
 
 
 /* =========================================================
-   LOAD ENTIRE BOOK TEXT
+   LOAD COMPLETE BOOK TEXT
 ========================================================= */
 
 async function loadBookText(
   book
 ) {
 
-  let result = [];
+  const result =
+    [];
 
 
   for (
@@ -2112,6 +3075,7 @@ async function loadBookText(
     i < book.chapters.length;
     i++
   ) {
+
 
     const chapter =
       await book.getChapter(
@@ -2139,11 +3103,6 @@ async function loadBookText(
     }
 
 
-    /*
-     * Add a small separation
-     * between chapters.
-     */
-
     result.push(
       chapterText
     );
@@ -2162,7 +3121,9 @@ async function loadBookText(
    WORD SPLITTER
 ========================================================= */
 
-function splitWords(text) {
+function splitWords(
+  text
+) {
 
   if (!text) {
 
@@ -2183,15 +3144,21 @@ function splitWords(text) {
 
 
 /* =========================================================
-   SHOW WORD PAGE
+   DISPLAY PAGE
 ========================================================= */
 
 function showWordPage() {
+
 
   if (!words.length) {
 
     textElement.textContent =
       "This book contains no readable text.";
+
+
+    chapterInfoElement.textContent =
+      "";
+
 
     return;
 
@@ -2218,15 +3185,10 @@ function showWordPage() {
     );
 
 
-  /*
-   * textContent is intentional.
-   *
-   * It prevents EPUB HTML from
-   * being executed or interpreted.
-   */
-
   textElement.textContent =
-    pageWords.join(" ");
+    pageWords.join(
+      " "
+    );
 
 
   totalWordPages =
@@ -2237,18 +3199,20 @@ function showWordPage() {
 
 
   chapterInfoElement.textContent =
+
     (
-      currentWordPage + 1
+      currentWordPage +
+      1
     ) +
+
     " / " +
+
     totalWordPages;
 
 
-  /*
-   * Update title.
-   */
-
-  if (currentBook) {
+  if (
+    currentBook
+  ) {
 
     titleElement.textContent =
       currentBook.name;
@@ -2262,10 +3226,11 @@ function showWordPage() {
 
 
 /* =========================================================
-   NEXT 20 WORDS
+   NEXT
 ========================================================= */
 
 function nextWords() {
+
 
   if (!words.length) {
 
@@ -2281,6 +3246,7 @@ function nextWords() {
 
     currentWordPage++;
 
+
     showWordPage();
 
   }
@@ -2289,10 +3255,11 @@ function nextWords() {
 
 
 /* =========================================================
-   PREVIOUS 20 WORDS
+   PREVIOUS
 ========================================================= */
 
 function previousWords() {
+
 
   if (!words.length) {
 
@@ -2307,6 +3274,7 @@ function previousWords() {
 
     currentWordPage--;
 
+
     showWordPage();
 
   }
@@ -2315,10 +3283,11 @@ function previousWords() {
 
 
 /* =========================================================
-   SAVE POSITION
+   SAVE READING POSITION
 ========================================================= */
 
 function savePosition() {
+
 
   if (!currentBook) {
 
@@ -2340,17 +3309,25 @@ function savePosition() {
     }
   )
   .catch(
-    console.error
+    error => {
+
+      console.warn(
+        "Could not save reading position:",
+        error
+      );
+
+    }
   );
 
 }
 
 
 /* =========================================================
-   RESTORE POSITION
+   RESTORE READING POSITION
 ========================================================= */
 
 async function restorePosition() {
+
 
   const position =
     await getData(
@@ -2358,55 +3335,113 @@ async function restorePosition() {
     );
 
 
-  if (
-    !position
-  ) {
+  if (!position) {
 
-    currentWordPage = 0;
+    currentWordPage =
+      0;
 
     return;
 
   }
 
 
+  const page =
+    Number.isFinite(
+      position.page
+    )
+      ? position.page
+      : 0;
+
+
   currentWordPage =
     Math.max(
+
       0,
+
       Math.min(
-        position.page || 0,
+
+        page,
+
         Math.max(
           0,
           totalWordPages - 1
         )
+
       )
+
     );
 
 }
 
 
 /* =========================================================
-   OPEN BOOK
+   OPEN STORED BOOK
 ========================================================= */
 
-async function openBook(
+async function openStoredBook(
   storedBook
 ) {
 
   try {
 
     showLoading(
-      "Opening book..."
+      "Opening saved book..."
     );
+
+
+    if (
+      !storedBook ||
+      !storedBook.data
+    ) {
+
+      throw new Error(
+        "Saved EPUB data is missing."
+      );
+
+    }
+
+
+    /*
+     * Convert the stored Blob back to ArrayBuffer.
+     */
+
+    let buffer;
+
+
+    if (
+      storedBook.data instanceof Blob
+    ) {
+
+      buffer =
+        await storedBook.data.arrayBuffer();
+
+    }
+    else if (
+      storedBook.data instanceof ArrayBuffer
+    ) {
+
+      buffer =
+        storedBook.data;
+
+    }
+    else {
+
+      throw new Error(
+        "Saved EPUB has an unsupported storage format."
+      );
+
+    }
 
 
     currentBook =
       new EPUBBook(
-        storedBook.data
+        buffer
       );
 
 
     currentBook.name =
-      storedBook.name;
+      storedBook.name ||
+      "Untitled EPUB";
 
 
     await currentBook.open();
@@ -2449,16 +3484,23 @@ async function openBook(
     hideLoading();
 
 
-    renderLibrary();
+    await renderLibrary();
 
   }
-  catch (e) {
+  catch (error) {
 
-    console.error(e);
+    console.error(
+      "Could not open stored book:",
+      error
+    );
+
 
     showError(
-      "Could not open book: " +
-      e.message
+      "Could not open saved book: " +
+      (
+        error.message ||
+        String(error)
+      )
     );
 
 
@@ -2473,22 +3515,34 @@ async function openBook(
    ADD BOOK
 ========================================================= */
 
-async function addBook(file) {
+async function addBook(
+  file
+) {
 
   try {
+
+
+    if (
+      !file
+    ) {
+
+      return;
+
+    }
+
 
     showLoading(
       "Reading EPUB..."
     );
 
 
+    /*
+     * Validate the EPUB before saving.
+     */
+
     const buffer =
       await file.arrayBuffer();
 
-
-    /*
-     * Validate the EPUB first.
-     */
 
     const testBook =
       new EPUBBook(
@@ -2499,31 +3553,98 @@ async function addBook(file) {
     await testBook.open();
 
 
-    /*
-     * Save the complete EPUB
-     * into IndexedDB.
-     */
-
-    await saveData(
-      BOOK_KEY,
-      {
-
-        name:
-          file.name,
-
-        data:
-          buffer,
-
-        saved:
-          Date.now()
-
-      }
+    showLoading(
+      "Saving book to device..."
     );
 
 
     /*
-     * Reset reading position
-     * when a new book is added.
+     * Save the original EPUB.
+     */
+
+    const blob =
+      new Blob(
+        [buffer],
+        {
+          type:
+            "application/epub+zip"
+        }
+      );
+
+
+    const bookRecord = {
+
+      id:
+        BOOK_KEY,
+
+      name:
+        file.name,
+
+      size:
+        file.size,
+
+      type:
+        "application/epub+zip",
+
+      saved:
+        Date.now(),
+
+      data:
+        blob
+
+    };
+
+
+    await saveData(
+      BOOK_KEY,
+      bookRecord
+    );
+
+
+    /*
+     * Verify that IndexedDB contains the actual book.
+     */
+
+    const verification =
+      await getData(
+        BOOK_KEY
+      );
+
+
+    if (
+      !verification ||
+      !verification.data
+    ) {
+
+      throw new Error(
+        "Book storage verification failed."
+      );
+
+    }
+
+
+    /*
+     * Verify the stored Blob can be read.
+     */
+
+    const storedBuffer =
+      await verification.data.arrayBuffer();
+
+
+    if (
+      !storedBuffer ||
+      storedBuffer.byteLength === 0
+    ) {
+
+      throw new Error(
+        "The stored EPUB is empty."
+      );
+
+    }
+
+
+    /*
+     * Reset reading position.
      */
 
     await saveData(
@@ -2540,27 +3661,35 @@ async function addBook(file) {
 
 
     /*
-     * Open the saved copy.
+     * Open the stored copy.
      */
 
-    const savedBook =
-      await getData(
-        BOOK_KEY
-      );
-
-
-    await openBook(
-      savedBook
+    await openStoredBook(
+      verification
     );
 
-  }
-  catch (e) {
 
-    console.error(e);
+    /*
+     * Check storage after saving.
+     */
+
+    await checkStorageSpace();
+
+  }
+  catch (error) {
+
+    console.error(
+      "Could not add book:",
+      error
+    );
+
 
     showError(
       "Could not add book: " +
-      e.message
+      (
+        error.message ||
+        String(error)
+      )
     );
 
 
@@ -2593,11 +3722,14 @@ fileInput.addEventListener(
   "change",
   async event => {
 
+
     const file =
       event.target.files[0];
 
 
-    if (file) {
+    if (
+      file
+    ) {
 
       await addBook(
         file
@@ -2607,11 +3739,11 @@ fileInput.addEventListener(
 
 
     /*
-     * Allows choosing the
-     * same file again.
+     * Allow selecting the same EPUB again.
      */
 
-    fileInput.value = "";
+    fileInput.value =
+      "";
 
   }
 );
@@ -2625,8 +3757,9 @@ wordPageElement.addEventListener(
   "click",
   event => {
 
+
     /*
-     * Don't treat a swipe as a click.
+     * Don't treat swipe movement as click.
      */
 
     if (
@@ -2641,7 +3774,9 @@ wordPageElement.addEventListener(
     }
 
 
-    if (!words.length) {
+    if (
+      !words.length
+    ) {
 
       return;
 
@@ -2653,14 +3788,6 @@ wordPageElement.addEventListener(
         .getBoundingClientRect()
         .width;
 
-
-    /*
-     * Click left side:
-     * previous.
-     *
-     * Click right side:
-     * next.
-     */
 
     if (
       event.clientX <
@@ -2688,6 +3815,7 @@ wordPageElement.addEventListener(
   "touchstart",
   event => {
 
+
     const touch =
       event.changedTouches[0];
 
@@ -2698,6 +3826,7 @@ wordPageElement.addEventListener(
 
     touchStartY =
       touch.clientY;
+
 
   },
   {
@@ -2713,6 +3842,7 @@ wordPageElement.addEventListener(
 wordPageElement.addEventListener(
   "touchend",
   event => {
+
 
     const touch =
       event.changedTouches[0];
@@ -2736,10 +3866,6 @@ wordPageElement.addEventListener(
       touchStartY;
 
 
-    /*
-     * Ignore mostly vertical gestures.
-     */
-
     if (
       Math.abs(deltaX) <
       40
@@ -2761,8 +3887,7 @@ wordPageElement.addEventListener(
 
 
     /*
-     * Swipe LEFT:
-     * next 20 words.
+     * Swipe LEFT = next.
      */
 
     if (
@@ -2775,8 +3900,7 @@ wordPageElement.addEventListener(
 
 
     /*
-     * Swipe RIGHT:
-     * previous 20 words.
+     * Swipe RIGHT = previous.
      */
 
     else {
@@ -2799,6 +3923,7 @@ wordPageElement.addEventListener(
 document.addEventListener(
   "keydown",
   event => {
+
 
     if (
       event.key ===
@@ -2824,7 +3949,7 @@ document.addEventListener(
 
 
 /* =========================================================
-   LIBRARY
+   LIBRARY BUTTON
 ========================================================= */
 
 document
@@ -2833,17 +3958,43 @@ document
   )
   .addEventListener(
     "click",
-    () => {
+    async () => {
+
 
       libraryElement
         .classList
         .add("open");
 
-      renderLibrary();
+
+      try {
+
+        await renderLibrary();
+
+      }
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        showError(
+          "Could not load library: " +
+          (
+            error.message ||
+            String(error)
+          )
+        );
+
+      }
 
     }
   );
 
+
+/* =========================================================
+   CLOSE LIBRARY
+========================================================= */
 
 document
   .getElementById(
@@ -2867,25 +4018,34 @@ document
 
 async function renderLibrary() {
 
+
   const book =
-    await getData(
-      BOOK_KEY
-    );
+    await getSavedBook();
 
 
   bookListElement.innerHTML =
     "";
 
 
-  if (!book) {
+  if (
+    !book
+  ) {
+
 
     bookListElement.innerHTML = `
+
       <div id="emptyLibrary">
+
         No book saved.
+
         <br><br>
+
         Add an EPUB to begin.
+
       </div>
+
     `;
+
 
     return;
 
@@ -2913,7 +4073,8 @@ async function renderLibrary() {
 
 
   title.textContent =
-    book.name;
+    book.name ||
+    "Untitled EPUB";
 
 
   const info =
@@ -2926,8 +4087,19 @@ async function renderLibrary() {
     "bookInfo";
 
 
+  const sizeMB =
+    book.size
+      ? (
+          book.size /
+          1024 /
+          1024
+        ).toFixed(1)
+      : "?";
+
+
   info.textContent =
-    "Stored on this device";
+    sizeMB +
+    " MB • Saved on this device";
 
 
   const deleteButton =
@@ -2952,6 +4124,7 @@ async function renderLibrary() {
     "click",
     async event => {
 
+
       event.stopPropagation();
 
 
@@ -2966,48 +4139,71 @@ async function renderLibrary() {
       }
 
 
-      await deleteData(
-        BOOK_KEY
-      );
+      try {
 
 
-      await deleteData(
-        POSITION_KEY
-      );
+        await deleteData(
+          BOOK_KEY
+        );
 
 
-      currentBook =
-        null;
+        await deleteData(
+          POSITION_KEY
+        );
 
 
-      words = [];
+        currentBook =
+          null;
 
 
-      currentWordPage =
-        0;
+        words =
+          [];
 
 
-      totalWordPages =
-        0;
+        currentWordPage =
+          0;
 
 
-      textElement.textContent =
-        "";
+        totalWordPages =
+          0;
 
 
-      titleElement.textContent =
-        "No book loaded";
+        textElement.textContent =
+          "";
 
 
-      chapterInfoElement.textContent =
-        "";
+        titleElement.textContent =
+          "No book loaded";
 
 
-      emptyElement.style.display =
-        "flex";
+        chapterInfoElement.textContent =
+          "";
 
 
-      renderLibrary();
+        emptyElement.style.display =
+          "flex";
+
+
+        await renderLibrary();
+
+
+      }
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        showError(
+          "Could not delete book: " +
+          (
+            error.message ||
+            String(error)
+          )
+        );
+
+      }
 
     }
   );
@@ -3032,21 +4228,43 @@ async function renderLibrary() {
     "click",
     async () => {
 
+
       libraryElement
         .classList
         .remove("open");
 
 
-      const savedBook =
-        await getData(
-          BOOK_KEY
+      try {
+
+
+        const savedBook =
+          await getSavedBook();
+
+
+        if (
+          savedBook
+        ) {
+
+          await openStoredBook(
+            savedBook
+          );
+
+        }
+
+      }
+      catch (error) {
+
+        console.error(
+          error
         );
 
 
-      if (savedBook) {
-
-        await openBook(
-          savedBook
+        showError(
+          "Could not load saved book: " +
+          (
+            error.message ||
+            String(error)
+          )
         );
 
       }
@@ -3072,6 +4290,7 @@ function showLoading(
 
   loadingElement.textContent =
     message;
+
 
   loadingElement.style.display =
     "flex";
@@ -3115,7 +4334,7 @@ function showError(
         "none";
 
     },
-    7000
+    8000
   );
 
 }
@@ -3127,40 +4346,87 @@ function showError(
 
 async function start() {
 
+
   try {
+
+
+    showLoading(
+      "Starting reader..."
+    );
+
+
+    /*
+     * Open IndexedDB first.
+     */
 
     await openDB();
 
 
+    /*
+     * Ask browser for persistent storage.
+     */
+
+    await requestPersistentStorage();
+
+
+    /*
+     * Display storage information in console.
+     */
+
+    await checkStorageSpace();
+
+
+    /*
+     * Look for the saved EPUB.
+     */
+
     const savedBook =
-      await getData(
-        BOOK_KEY
-      );
+      await getSavedBook();
 
 
-    if (savedBook) {
+    if (
+      savedBook
+    ) {
 
-      await openBook(
+
+      /*
+       * The book survived the previous session.
+       */
+
+      await openStoredBook(
         savedBook
       );
 
     }
     else {
 
+
       hideLoading();
 
-      renderLibrary();
+
+      emptyElement.style.display =
+        "flex";
+
+
+      await renderLibrary();
 
     }
 
   }
-  catch (e) {
+  catch (error) {
 
-    console.error(e);
+    console.error(
+      "Startup error:",
+      error
+    );
+
 
     showError(
       "Startup error: " +
-      e.message
+      (
+        error.message ||
+        String(error)
+      )
     );
 
 
@@ -3171,10 +4437,56 @@ async function start() {
 }
 
 
+/* =========================================================
+   PAGE VISIBILITY
+========================================================= */
+
+
+/*
+ * Save the current position when the browser sends the page
+ * into the background.
+ */
+
+document.addEventListener(
+  "visibilitychange",
+  () => {
+
+    if (
+      document.visibilityState ===
+      "hidden"
+    ) {
+
+      savePosition();
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   PAGE HIDE
+========================================================= */
+
+window.addEventListener(
+  "pagehide",
+  () => {
+
+    savePosition();
+
+  }
+);
+
+
+/* =========================================================
+   START APPLICATION
+========================================================= */
+
 start();
 
 </script>
 
 </body>
+
 </html>
 
